@@ -30,17 +30,27 @@ import com.alee.laf.list.WebListCellRenderer;
 import com.alee.laf.menu.WMenuBarInputListener;
 import com.alee.laf.splitpane.WSplitPaneInputListener;
 import com.alee.laf.tabbedpane.WTabbedPaneInputListener;
-import com.alee.managers.UIManagers;
+import com.alee.managers.animation.AnimationManager;
+import com.alee.managers.drag.DragManager;
+import com.alee.managers.focus.FocusManager;
+import com.alee.managers.hotkey.HotkeyManager;
+import com.alee.managers.hover.HoverManager;
+import com.alee.managers.icon.IconManager;
 import com.alee.managers.icon.Icons;
+import com.alee.managers.language.UILanguageManager;
+import com.alee.managers.proxy.UIProxyManager;
+import com.alee.managers.settings.UISettingsManager;
 import com.alee.managers.style.ComponentDescriptor;
 import com.alee.managers.style.Skin;
 import com.alee.managers.style.StyleManager;
+import com.alee.managers.task.TaskManager;
+import com.alee.managers.tooltip.TooltipManager;
 import com.alee.skin.light.WebLightSkin;
 import com.alee.utils.*;
 import com.alee.utils.laf.WebBorder;
 import com.alee.utils.reflection.LazyInstance;
 import com.alee.utils.swing.SwingLazyValue;
-import com.alee.utils.swing.WeakComponentDataList;
+import com.alee.utils.swing.WeakComponentDataOrderedSet;
 
 import javax.swing.*;
 import javax.swing.event.EventListenerList;
@@ -213,8 +223,8 @@ public class WebLookAndFeel extends BasicLookAndFeel
      * @see #removeVisibleWindowListener(JComponent, VisibleWindowListener)
      */
     @NotNull
-    protected static final WeakComponentDataList<JComponent, VisibleWindowListener> visibleWindowListeners =
-            new WeakComponentDataList<JComponent, VisibleWindowListener> ( "WebLookAndFeel.VisibleWindowListener", 50 );
+    protected static final WeakComponentDataOrderedSet<JComponent, VisibleWindowListener> visibleWindowListeners =
+            new WeakComponentDataOrderedSet<JComponent, VisibleWindowListener> ( "WebLookAndFeel.VisibleWindowListener", 50 );
 
     /**
      * Previously installed {@link LookAndFeel}.
@@ -1074,7 +1084,23 @@ public class WebLookAndFeel extends BasicLookAndFeel
      */
     public static void initializeManagers ()
     {
-        UIManagers.initialize ();
+        // Ensuring that operation is performed on EDT
+        WebLookAndFeel.checkEventDispatchThread ();
+
+        // Initializing managers
+        XmlUtils.getXStream ();
+        UILanguageManager.initialize ();
+        UISettingsManager.initialize ();
+        HotkeyManager.initialize ();
+        FocusManager.initialize ();
+        HoverManager.initialize ();
+        TooltipManager.initialize ();
+        IconManager.initialize ();
+        StyleManager.initialize ();
+        AnimationManager.initialize ();
+        UIProxyManager.initialize ();
+        DragManager.initialize ();
+        TaskManager.initialize ();
     }
 
     /**

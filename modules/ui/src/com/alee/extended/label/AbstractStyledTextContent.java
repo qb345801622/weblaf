@@ -24,7 +24,10 @@ import com.alee.api.merge.behavior.OmitOnMerge;
 import com.alee.painter.decoration.DecorationException;
 import com.alee.painter.decoration.IDecoration;
 import com.alee.painter.decoration.content.AbstractTextContent;
-import com.alee.utils.*;
+import com.alee.utils.CollectionUtils;
+import com.alee.utils.FontUtils;
+import com.alee.utils.GraphicsUtils;
+import com.alee.utils.TextUtils;
 import com.alee.utils.general.Pair;
 import com.thoughtworks.xstream.annotations.XStreamAsAttribute;
 
@@ -411,8 +414,18 @@ public abstract class AbstractStyledTextContent<C extends JComponent, D extends 
                 {
                     if ( ( maximumRows <= 0 || rowCount < maximumRows ) && y + maxRowHeight + Math.max ( 0, rowGap ) <= endY )
                     {
-                        int availLength = ( int ) ( ( long ) s.length () * widthLeft / strWidth ) + 1; // Optimistic prognoses
                         int firstWordOffset = Math.max ( 0, TextUtils.findFirstWordFromIndex ( s, 0 ) );
+
+                        // Optimistic prediction
+                        int availLength = ( int ) ( ( long ) s.length () * widthLeft / strWidth ) + firstWordOffset + 1;
+
+                        // Workaround for insufficient overshoot for optimistic prediction
+                        while ( availLength < s.length () &&
+                                cfm.stringWidth ( s.substring ( 0, Math.max ( 0, Math.min ( availLength, s.length () ) ) ) ) <= widthLeft )
+                        {
+                            availLength += 1;
+                        }
+
                         int nextRowStartInSubString = 0;
 
                         do
@@ -423,8 +436,10 @@ public abstract class AbstractStyledTextContent<C extends JComponent, D extends 
                             {
                                 final String subString = s.substring ( 0, Math.max ( 0, Math.min ( availLength, s.length () ) ) );
 
-                                // Searching last word start
-                                lastInWordEndIndex = TextUtils.findLastRowWordStartIndex ( subString.trim () );
+                                // Searching last word start // trim start only
+                                lastInWordEndIndex = availLength > firstWordOffset
+                                        ? TextUtils.findLastRowWordStartIndex ( subString.substring ( firstWordOffset ), false )
+                                        : -1;
 
                                 // Only one word in row left
                                 if ( lastInWordEndIndex < 0 )
@@ -434,23 +449,38 @@ public abstract class AbstractStyledTextContent<C extends JComponent, D extends 
                                         if ( row.isEmpty () )
                                         {
                                             // Search last index of the first word end
-                                            nextRowStartInSubString = firstWordOffset + TextUtils.findFirstRowWordEndIndex ( s.trim () );
+                                            nextRowStartInSubString = firstWordOffset +
+                                                    TextUtils.findFirstRowWordEndIndex ( s.substring ( firstWordOffset ) );
                                         }
 
                                         break;
                                     }
-                                    else
+                                    else//if ( wt == WrapType.mixed )
                                     {
                                         if ( row.isEmpty () )
                                         {
-                                            lastInWordEndIndex = availLength - 1;
-                                            firstWordOffset = 0;
+                                            if ( firstWordOffset > 0 && ( firstWordOffset + 1 >= availLength || row.isLeading () ) )
+                                            {
+                                                // in middle of word with leading spaces
+                                                firstWordOffset = 0;
+                                                lastInWordEndIndex = availLength - 1;
+                                            }
+                                            else
+                                            {
+                                                lastInWordEndIndex = availLength - firstWordOffset - 1;
+                                            }
                                         }
                                     }
                                 }
 
+                                // Keep spaces for leading row
+                                final int substringOffset = row.isEmpty () && row.isLeading ()
+                                        ? 0
+                                        : firstWordOffset;
+
                                 nextRowStartInSubString = firstWordOffset + lastInWordEndIndex + 1;
-                                subStringThisRow = subString.substring ( 0, Math.min ( nextRowStartInSubString, subString.length () ) );
+                                subStringThisRow =
+                                        subString.substring ( substringOffset, Math.min ( nextRowStartInSubString, subString.length () ) );
                             }
                             else//if ( wt == WrapType.character )
                             {
@@ -781,7 +811,7 @@ public abstract class AbstractStyledTextContent<C extends JComponent, D extends 
     @Override
     protected Dimension getPreferredTextSize ( @NotNull final C c, @NotNull final D d, @NotNull final Dimension available )
     {
-        final int maximumTextWidth = getMaximumTextWidth ( c, d );
+        /*final int maximumTextWidth = getMaximumTextWidth ( c, d );
 
         // Preferred size for maximum possible space
         final Dimension vSize = getPreferredStyledTextSize ( c, d, new Dimension ( maximumTextWidth, Short.MAX_VALUE ) );
@@ -790,7 +820,24 @@ public abstract class AbstractStyledTextContent<C extends JComponent, D extends 
         available.width = Math.min ( available.width, maximumTextWidth );
         final Dimension hSize = getPreferredStyledTextSize ( c, d, available );
 
-        return SwingUtils.maxNonNull ( vSize, hSize );
+        return SwingUtils.maxNonNull ( vSize, hSize );*/
+
+        final int maximumTextWidth = getMaximumTextWidth ( c, d );
+
+        // Preferred size for maximum possible space
+        Dimension vSize = getPreferredStyledTextSize ( c, d, new Dimension ( maximumTextWidth, Short.MAX_VALUE ) );
+        if ( available.height > 0 || available.width > 0 )
+        {
+            // Preferred size for available space
+            available.width = Math.min ( available.width, maximumTextWidth );
+            final Dimension hSize = getPreferredStyledTextSize ( c, d, available );
+
+            vSize = new Dimension (
+                    Math.min ( vSize.width, hSize.width ),
+                    Math.max ( vSize.height, hSize.height )
+            );
+        }
+        return vSize;
 
         /**
          * This doesn't work for some cases and causes issue when available size expands.

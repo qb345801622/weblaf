@@ -414,14 +414,15 @@ public final class TextUtils
     /**
      * Returns begin index of last word in the specified text.
      *
-     * @param string text to process
+     * @param string             text to process
+     * @param skipTrailingSpaces whether or not trailing "spaces" would be skipped
      * @return begin index of last word in the specified text
      */
-    public static int findLastRowWordStartIndex ( @NotNull final String string )
+    public static int findLastRowWordStartIndex ( @NotNull final String string, final boolean skipTrailingSpaces )
     {
         int index = -1;
         boolean spaceFound = false;
-        boolean skipSpace = true;
+        boolean skipSpace = skipTrailingSpaces;
         for ( int i = string.length () - 1; i >= 0; i-- )
         {
             final char c = string.charAt ( i );
@@ -748,30 +749,7 @@ public final class TextUtils
     public static <T> String listToString ( @Nullable final List<T> list, @NotNull final String separator,
                                             @NotNull final Function<T, String> textProvider, @Nullable final Filter<T> filter )
     {
-        final String result;
-        if ( CollectionUtils.notEmpty ( list ) )
-        {
-            final StringBuilder stringBuilder = new StringBuilder ();
-            boolean hasPreviouslyAccepted = false;
-            for ( final T object : list )
-            {
-                if ( filter == null || filter.accept ( object ) )
-                {
-                    if ( hasPreviouslyAccepted )
-                    {
-                        stringBuilder.append ( separator );
-                    }
-                    stringBuilder.append ( textProvider.apply ( object ) );
-                    hasPreviouslyAccepted = true;
-                }
-            }
-            result = stringBuilder.toString ();
-        }
-        else
-        {
-            result = null;
-        }
-        return result;
+        return collectionToString ( list, separator, textProvider, filter );
     }
 
     /**
